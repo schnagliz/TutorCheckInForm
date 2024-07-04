@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dynamic Form</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .form-container {
+            max-width: 600px;
+            margin: auto;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input[type="text"], input[type="email"], textarea, select, input[type="date"], input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        .student-group, .subject-group, .meeting-group, .booking-group, .diagnostic-group, .problem-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 10px;
+        }
+        .student-group input[type="text"], .meeting-group input[type="date"], .booking-group input[type="text"], .diagnostic-group input[type="text"], .subject-group select {
+            flex: 1;
+        }
+        .add-button, .remove-button {
+            margin-top: 10px;
+            padding: 10px;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .add-button {
+            background-color: #4CAF50;
+        }
+        .add-button:hover {
+            background-color: #45a049;
+        }
+        .remove-button {
+            background-color: #f44336;
+        }
+        .remove-button:hover {
+            background-color: #d32f2f;
+        }
+        input[type="submit"] {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        input[type="submit"]:hover {
+            background-color: #45a049;
+        }
+        .sub-question {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+        .hidden {
+            display: none;
+        }
+        .dropdown-content {
+            position: relative;
+            background-color: #f9f9f9;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        .dropdown-content label {
+            display: block;
+        }
+        .dropdown-content input[type="checkbox"] {
+            margin-right: 10px;
+        }
+        .custom-subject-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="form-container">
+    <h2>Dynamic Form</h2>
+    <form action="your_form_processing_url" method="post" enctype="multipart/form-data">
+        <div class="form-group">
+            <label>Who are your current student assignments?</label>
+            <div id="student-fields">
+                <div class="student-group">
+                    <input type="text" name="students[]" oninput="handleStudentInput(this)" required>
+                    <button type="button" class="add-button" onclick="addStudentField()">+</button>
+                </div>
+            </div>
+        </div>
+        <div id="subject-fields"></div>
+        <div id="meeting-fields"></div>
+        <div id="booking-fields"></div>
+        <div id="diagnostic-fields"></div>
+        <div id="problem-fields"></div>
+        <div class="form-group">
+            <input type="submit" value="Submit">
+        </div>
+    </form>
+</div>
+
+<script>
+    const subjects = ['ACT', 'AP Biology', 'AP Chemistry', 'AP Chinese', 'AP Physics', 'SAT'];
+    let studentSubjects = [];
+
+    function addStudentField() {
+        const studentFields = document.getElementById('student-fields');
+        const newField = document.createElement('div');
+        newField.className = 'student-group';
+        newField.innerHTML = '<input type="text" name="students[]" oninput="handleStudentInput(this)" required><button type="button" class="add-button" onclick="addStudentField()">+</button><button type="button" class="remove-button" onclick="removeStudentField(this)">-</button>';
+        studentFields.appendChild(newField);
+    }
+
+    function removeStudentField(button) {
+        button.parentNode.remove();
+        updateFields();
+    }
+
+    function handleStudentInput() {
+        saveState();
+        updateFields();
+    }
+
+    function saveState() {
+        studentSubjects = Array.from(document.querySelectorAll('#student-fields input')).map((input, i) => ({
+            studentName: input.value,
+            subjects: Array.from(document.querySelectorAll(`#subjects-for-${i} input[type="checkbox"]:checked`)).map(cb => cb.value),
+            customSubjects: Array.from(document.querySelectorAll(`#custom-subjects-for-${i} input[type="text"]`)).map(cs => cs.value),
+            meetingDate: document.getElementById(`meeting-date-${i}`)?.value || '',
+            booking: document.querySelector(`input[name="booking[${i}]"]:checked`)?.value || '',
+            recomBooking: document.querySelector(`input[name="recom-booking[${i}]"]:checked`)?.value || '',
+            reason: document.getElementById(`reason-${i}`)?.value || '',
+            diagnostic: document.querySelector(`input[name="diagnostic[${i}]"]:checked`)?.value || '',
+            diagnosticScore: document.getElementById(`diagnostic-score-${i}`)?.value || '',
+            lastAssigned: document.getElementById(`last-assigned-${i}`)?.value || '',
+            nextAssign: document.getElementById(`next-assign-${i}`)?.value || '',
+            naReason: document.getElementById(`na-reason-${i}`)?.value || ''
+        }));
+    }
+
+    function updateFields() {
+        const studentFields = Array.from(document.querySelectorAll('#student-fields input'));
+        document.getElementById('subject-fields').innerHTML = '';
+        document.getElementById('meeting-fields').innerHTML = '';
+        document.getElementById('booking-fields').innerHTML = '';
+        document.getElementById('diagnostic-fields').innerHTML = '';
+        document.getElementById('problem-fields').innerHTML = '';
+
+        studentFields.forEach((input, i) => {
+            if (input.value.trim()) {
+                const studentName = input.value;
+                appendSubjectField(i, studentName);
+                appendMeetingField(i, studentName);
+                appendBookingField(i, studentName);
+                appendDiagnosticField(i, studentName);
+            }
+        });
+
+        appendProblemField();
+
+        studentSubjects.forEach((student, i) => {
+            if (student.meetingDate) document.getElementById(`meeting-date-${i}`).value = student.meetingDate;
+            if (student.booking) document.querySelector(`input[name="booking[${i}]"][value="${student.booking}"]`).checked = true;
+            if (student.recomBooking) {
+                document.querySelector(`input[name="recom-booking[${i}]"][value="${student.recomBooking}"]`).checked = true;
+                if (student.recomBooking === 'no') toggleReasonField(i, true);
+            }
+            if (student.reason) document.getElementById(`reason-${i}`).value = student.reason;
+            if (student.diagnostic) {
+                document.querySelector(`input[name="diagnostic[${i}]"][value="${student.diagnostic}"]`).checked = true;
+                if (student.diagnostic === 'yes') {
+                    document.getElementById(`diagnostic-score-group-${i}`).classList.remove('hidden');
+                    document.getElementById(`diagnostic-score-${i}`).value = student.diagnosticScore;
+                } else if (student.diagnostic === 'no') {
+                    document.getElementById(`last-assigned-group-${i}`).classList.remove('hidden');
+                    document.getElementById(`next-assign-group-${i}`).classList.remove('hidden');
+                    document.getElementById(`last-assigned-${i}`).value = student.lastAssigned;
+                    document.getElementById(`next-assign-${i}`).value = student.nextAssign;
+                } else if (student.diagnostic === 'na') {
+                    document.getElementById(`na-reason-group-${i}`).classList.remove('hidden');
+                    document.getElementById(`na-reason-${i}`).value = student.naReason;
+                }
+            }
+            student.subjects.forEach(subject => document.querySelector(`#subjects-for-${i} input[value="${subject}"]`).checked = true);
+            student.customSubjects.forEach(customSubject => addCustomSubjectField(i, customSubject));
+        });
+    }
+
+    function appendSubjectField(index, studentName) {
+        const container = document.createElement('div');
+        container.className = 'form-group';
+        container.innerHTML = `<label>What subject(s) are you teaching ${studentName}?</label><div id="subjects-for-${index}" class="dropdown-content">${getSubjectsDropdown(index)}</div>`;
+        document.getElementById('subject-fields').appendChild(container);
+    }
+
+    function appendMeetingField(index, studentName) {
+        const container = document.createElement('div');
+        container.className = 'form-group';
+        container.innerHTML = `<label>When did you last meet with ${studentName}?</label><input type="date" id="meeting-date-${index}" name="meetingDates[${index}]">`;
+        document.getElementById('meeting-fields').appendChild(container);
+    }
+
+    function appendBookingField(index, studentName) {
+        const container = document.createElement('div');
+        container.className = 'form-group';
+        container.innerHTML = `
+            <label>How many times has ${studentName} been / are they recommended to be booking per week?</label>
+            <div class="booking-group">${getBookingOptions(index)}</div>`;
+        document.getElementById('booking-fields').appendChild(container);
+    }
+
+    function appendDiagnosticField(index, studentName) {
+        const container = document.createElement('div');
+        container.className = 'form-group';
+        container.innerHTML = `
+            <label>Has ${studentName} been assigned a diagnostic exam of some sort recently?</label>
+            <div class="diagnostic-group">${getDiagnosticOptions(index)}</div>`;
+        document.getElementById('diagnostic-fields').appendChild(container);
+    }
+
+    function appendProblemField() {
+        const container = document.createElement('div');
+        container.className = 'form-group';
+        container.innerHTML = `
+            <label>Have any problems arisen with either the student(s) or the parent(s) that should be brought to Will's attention? If so, elaborate.</label>
+            <div class="problem-group">
+                <label><input type="radio" name="problem" value="yes" onclick="toggleProblemFields(true)"> Yes</label>
+                <label><input type="radio" name="problem" value="no" onclick="toggleProblemFields(false)"> No</label>
+            </div>
+            <div id="problem-fields-details" class="hidden">
+                <select id="problem-students" name="problemStudents[]" multiple>
+                    ${studentSubjects.map(student => `<option value="${student.studentName}">${student.studentName}</option>`).join('')}
+                </select>
+                <div id="problem-details"></div>
+            </div>`;
+        document.getElementById('problem-fields').appendChild(container);
+    }
+
+    function toggleProblemFields(show) {
+        const problemFields = document.getElementById('problem-fields-details');
+        problemFields.classList.toggle('hidden', !show);
+        if (show) {
+            const problemStudents = document.getElementById('problem-students');
+            problemStudents.onchange = function() {
+                updateProblemDetails();
+            };
+        }
+    }
+
+    function updateProblemDetails() {
+        const problemDetails = document.getElementById('problem-details');
+        problemDetails.innerHTML = '';
+        const selectedStudents = Array.from(document.getElementById('problem-students').selectedOptions).map(option => option.value);
+        selectedStudents.forEach(studentName => {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.name = `problemDetails[${studentName}]`;
+            input.placeholder = `Details for ${studentName}`;
+            problemDetails.appendChild(input);
+        });
+    }
+
+    function getSubjectsDropdown(index) {
+        return `
+            ${subjects.map(subject => `<label><input type="checkbox" value="${subject}"> ${subject}</label>`).join('')}
+            <div id="custom-subjects-for-${index}"></div>
+            <button type="button" class="add-button" onclick="addCustomSubjectField(${index})">Other Subject +</button>`;
+    }
+
+    function addCustomSubjectField(index, value = '') {
+        const customSubjectsContainer = document.getElementById(`custom-subjects-for-${index}`);
+        const newField = document.createElement('div');
+        newField.className = 'custom-subject-group';
+        newField.innerHTML = `<input type="text" value="${value}" placeholder="Enter custom subject"><button type="button" class="remove-button" onclick="removeCustomSubjectField(this)">-</button>`;
+        customSubjectsContainer.appendChild(newField);
+    }
+
+    function removeCustomSubjectField(button) {
+        button.parentNode.remove();
+    }
+
+    function getBookingOptions(index) {
+        return `
+            <label><input type="radio" name="booking[${index}]" value="1x"> 1x</label>
+            <label><input type="radio" name="booking[${index}]" value="2x-3x"> 2x-3x</label>
+            <label><input type="radio" name="booking[${index}]" value="3-4x+"> 3-4x+</label>
+            <div class="sub-question"><label>Have they been booking their recommended amount?</label>
+            <div class="recom-booking-group">
+                <label><input type="radio" name="recom-booking[${index}]" value="yes" onclick="toggleReasonField(${index}, false)"> Yes</label>
+                <label><input type="radio" name="recom-booking[${index}]" value="no" onclick="toggleReasonField(${index}, true)"> No</label>
+                <input type="text" id="reason-${index}" name="reason[${index}]" class="hidden" placeholder="Please specify the reason">
+            </div></div>`;
+    }
+
+    function getDiagnosticOptions(index) {
+        return `
+            <label><input type="radio" name="diagnostic[${index}]" value="yes" onclick="toggleDiagnosticFields(${index}, true, false)"> Yes</label>
+            <label><input type="radio" name="diagnostic[${index}]" value="no" onclick="toggleDiagnosticFields(${index}, false, false)"> No</label>
+            <label><input type="radio" name="diagnostic[${index}]" value="na" onclick="toggleDiagnosticFields(${index}, false, true)"> N/A</label>
+            <div class="sub-question hidden" id="diagnostic-score-group-${index}"><label>Diagnostic Score:</label><input type="text" id="diagnostic-score-${index}" name="diagnosticScore[${index}]" placeholder="Enter score"></div>
+            <div class="sub-question hidden" id="last-assigned-group-${index}"><label>When was the last assigned?</label><input type="date" id="last-assigned-${index}" name="lastAssigned[${index}]"></div>
+            <div class="sub-question hidden" id="next-assign-group-${index}"><label>When do you plan on assigning another diagnostic?</label><input type="date" id="next-assign-${index}" name="nextAssign[${index}]"></div>
+            <div class="sub-question hidden" id="na-reason-group-${index}"><label>Please specify why you chose N/A:</label><input type="text" id="na-reason-${index}" name="naReason[${index}]"></div>
+            <div class="sub-question"><label>Please Upload Anything Relating to Their Progress or Diagnostics:</label><input type="file" id="progress-upload-${index}" name="progressUpload[${index}]"></div>`;
+    }
+
+    function toggleReasonField(index, show) {
+        document.getElementById(`reason-${index}`).classList.toggle('hidden', !show);
+    }
+
+    function toggleDiagnosticFields(index, show, na) {
+        document.getElementById(`diagnostic-score-group-${index}`).classList.toggle('hidden', !show);
+        document.getElementById(`last-assigned-group-${index}`).classList.toggle('hidden', show || na);
+        document.getElementById(`next-assign-group-${index}`).classList.toggle('hidden', show || na);
+        document.getElementById(`na-reason-group-${index}`).classList.toggle('hidden', !na);
+    }
+</script>
+
+</body>
+</html>
