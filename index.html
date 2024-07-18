@@ -90,10 +90,24 @@
     </style>
 </head>
 <body>
+<script>
+    // Check if the tutor is logged in
+    if (!localStorage.getItem('tutorLoggedIn')) {
+        // If not logged in, redirect to the login page
+        window.location.href = 'login.html';
+    }
+
+    // Add a logout function
+    function logout() {
+        localStorage.removeItem('tutorLoggedIn');
+        window.location.href = 'login.html';
+    }
+</script>
 
 <div class="form-container">
     <h2>Dynamic Form</h2>
-    <form action="your_form_processing_url" method="post" enctype="multipart/form-data">
+    <button onclick="logout()" style="float: right;">Logout</button>
+    <form id="tutorForm" enctype="multipart/form-data">
         <div class="form-group">
             <label>Who are your current student assignments?</label>
             <div id="student-fields">
@@ -107,7 +121,17 @@
         <div id="meeting-fields"></div>
         <div id="booking-fields"></div>
         <div id="diagnostic-fields"></div>
-        <div id="problem-fields"></div>
+        <div id="problem-fields" class="hidden">
+            <label>Have any problems arisen with either the student(s) or the parent(s) that should be brought to Will's attention? If so, elaborate.</label>
+            <div class="problem-group">
+                <label><input type="radio" name="problem" value="yes" onclick="toggleProblemFields(true)"> Yes</label>
+                <label><input type="radio" name="problem" value="no" onclick="toggleProblemFields(false)"> No</label>
+            </div>
+            <div id="problem-fields-details" class="hidden">
+                <select id="problem-students" name="problemStudents[]" multiple></select>
+                <div id="problem-details"></div>
+            </div>
+        </div>
         <div class="form-group">
             <input type="submit" value="Submit">
         </div>
@@ -124,6 +148,7 @@
         newField.className = 'student-group';
         newField.innerHTML = '<input type="text" name="students[]" oninput="handleStudentInput(this)" required><button type="button" class="add-button" onclick="addStudentField()">+</button><button type="button" class="remove-button" onclick="removeStudentField(this)">-</button>';
         studentFields.appendChild(newField);
+        updateFields();
     }
 
     function removeStudentField(button) {
@@ -159,7 +184,6 @@
         document.getElementById('meeting-fields').innerHTML = '';
         document.getElementById('booking-fields').innerHTML = '';
         document.getElementById('diagnostic-fields').innerHTML = '';
-        document.getElementById('problem-fields').innerHTML = '';
 
         studentFields.forEach((input, i) => {
             if (input.value.trim()) {
@@ -171,7 +195,12 @@
             }
         });
 
-        appendProblemField();
+        if (studentFields.some(input => input.value.trim())) {
+            document.getElementById('problem-fields').classList.remove('hidden');
+            updateProblemStudents();
+        } else {
+            document.getElementById('problem-fields').classList.add('hidden');
+        }
 
         studentSubjects.forEach((student, i) => {
             if (student.meetingDate) document.getElementById(`meeting-date-${i}`).value = student.meetingDate;
@@ -234,32 +263,29 @@
     }
 
     function appendProblemField() {
-        const container = document.createElement('div');
-        container.className = 'form-group';
-        container.innerHTML = `
+        const problemFields = document.getElementById('problem-fields');
+        problemFields.innerHTML = `
             <label>Have any problems arisen with either the student(s) or the parent(s) that should be brought to Will's attention? If so, elaborate.</label>
             <div class="problem-group">
                 <label><input type="radio" name="problem" value="yes" onclick="toggleProblemFields(true)"> Yes</label>
                 <label><input type="radio" name="problem" value="no" onclick="toggleProblemFields(false)"> No</label>
             </div>
             <div id="problem-fields-details" class="hidden">
-                <select id="problem-students" name="problemStudents[]" multiple>
-                    ${studentSubjects.map(student => `<option value="${student.studentName}">${student.studentName}</option>`).join('')}
-                </select>
-                <div id="problem-details"></div>
-            </div>`;
-        document.getElementById('problem-fields').appendChild(container);
+                <select id="problem-students" name="problemStudents[]" multiple></select>
+                <div id="problem-details"></div>`;
     }
 
     function toggleProblemFields(show) {
         const problemFields = document.getElementById('problem-fields-details');
         problemFields.classList.toggle('hidden', !show);
         if (show) {
-            const problemStudents = document.getElementById('problem-students');
-            problemStudents.onchange = function() {
-                updateProblemDetails();
-            };
+            updateProblemDetails();
         }
+    }
+
+    function updateProblemStudents() {
+        const problemStudents = document.getElementById('problem-students');
+        problemStudents.innerHTML = studentSubjects.map(student => `<option value="${student.studentName}">${student.studentName}</option>`).join('');
     }
 
     function updateProblemDetails() {
@@ -329,6 +355,52 @@
         document.getElementById(`next-assign-group-${index}`).classList.toggle('hidden', show || na);
         document.getElementById(`na-reason-group-${index}`).classList.toggle('hidden', !na);
     }
+
+    async function submitForm(event) {
+        event.preventDefault();
+
+        const formData = {
+            tutorEmail: localStorage.getItem('tutorLoggedIn'),
+            students: studentSubjects.map(student => ({
+                name: student.studentName,
+                subjects: [...student.subjects, ...student.customSubjects],
+                lastMeeting: student.meetingDate,
+                bookingFrequency: student.booking,
+                diagnosticExam: {
+                    assigned: student.diagnostic === 'yes',
+                    score: student.diagnosticScore,
+                    lastAssigned: student.lastAssigned,
+                    nextAssigned: student.nextAssign
+                }
+            })),
+            problems: Array.from(document.querySelectorAll('#problem-details input')).map(input => ({
+                studentName: input.name.match(/\[(.*?)\]/)[1],
+                details: input.value
+            }))
+        };
+
+        try {
+            const response = await fetch('http://localhost:5002/api/submit-form', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData),
+            });
+
+            if (response.ok) {
+                alert('Form submitted successfully!');
+                // Optionally reset the form here
+            } else {
+                throw new Error('Form submission failed');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred while submitting the form. Please try again.');
+        }
+    }
+
+    document.getElementById('tutorForm').addEventListener('submit', submitForm);
 </script>
 
 </body>

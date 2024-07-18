@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Submissions</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; }
+        .submission { border: 1px solid #ddd; padding: 15px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Form Submissions</h1>
+    <div id="submissions"></div>
+
+    <script>
+        async function fetchSubmissions() {
+            try {
+                console.log('Fetching submissions...');
+                const response = await fetch('http://localhost:5001/api/submissions');
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                console.log('Fetched data:', data);
+                
+                const submissionsDiv = document.getElementById('submissions');
+                submissionsDiv.innerHTML = data.map(submission => `
+                    <div class="submission">
+                        <h2>Submission from ${submission.tutorEmail}</h2>
+                        <p>Submitted at: ${new Date(submission.submittedAt).toLocaleString()}</p>
+                        <h3>Students:</h3>
+                        <ul>
+                            ${submission.students.map(student => `
+                                <li>
+                                    <strong>${student.name}</strong><br>
+                                    Subjects: ${student.subjects.join(', ')}<br>
+                                    Last Meeting: ${new Date(student.lastMeeting).toLocaleDateString()}<br>
+                                    Booking Frequency: ${student.bookingFrequency}
+                                </li>
+                            `).join('')}
+                        </ul>
+                        ${submission.problems && submission.problems.length ? `
+                            <h3>Problems:</h3>
+                            <ul>
+                                ${submission.problems.map(problem => `
+                                    <li>${problem.studentName}: ${problem.details}</li>
+                                `).join('')}
+                            </ul>
+                        ` : ''}
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('submissions').innerHTML = `<p>Error fetching submissions: ${error.message}</p>`;
+            }
+        }
+
+        fetchSubmissions();
+    </script>
+</body>
+</html>
